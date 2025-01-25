@@ -2,20 +2,22 @@ import os
 import requests
 import m3u8
 import ffmpeg
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urljoin, urlparse
+from flask import Flask, render_template, request, send_file, jsonify
+from werkzeug.utils import secure_filename
 
 class M3U8DownloadManager:
-    def __init__(self, playlist_url, output_dir='downloads'):
+    def __init__(self, playlist_url):
         """
         Initialize the download manager with an M3U8 playlist URL
         
         :param playlist_url: URL of the M3U8 playlist
-        :param output_dir: Directory to save downloaded files
         """
         self.playlist_url = playlist_url
-        self.output_dir = output_dir
-        os.makedirs(output_dir, exist_ok=True)
+        self.output_dir = os.path.join('downloads', str(uuid.uuid4()))
+        os.makedirs(self.output_dir, exist_ok=True)
         
         # Parse the playlist
         self.playlist = self._parse_playlist()
@@ -26,8 +28,13 @@ class M3U8DownloadManager:
         
         :return: Parsed M3U8 playlist object
         """
-        response = requests.get(self.playlist_url)
-        return m3u8.loads(response.text)
+        try:
+            response = requests.get(self.playlist_url)
+            response.raise_for_status()
+            return m3u8.loads(response.text)
+        except Exception as e:
+            print(f"Error parsing playlist: {e}")
+            return None
     
     def get_available_streams(self):
         """
@@ -35,8 +42,11 @@ class M3U8DownloadManager:
         
         :return: List of available stream resolutions
         """
-        return [f"{stream.stream_info.resolution[0]}x{stream.stream_info.resolution[1]}" 
-                for stream in self.playlist.playlists]
+        if not self.playlist or not self.playlist.playlists:
+            return []
+        
+        return [f"{pl.stream_info.resolution[0]}x{pl.stream_info.resolution[1]}" 
+                for pl in self.playlist.playlists]
     
     def get_available_audio_tracks(self):
         """
@@ -44,9 +54,12 @@ class M3U8DownloadManager:
         
         :return: List of available audio languages
         """
+        if not self.playlist or not self.playlist.media:
+            return []
+        
         return [media.name for media in self.playlist.media if media.type == 'AUDIO']
     
-    def download_stream(self, resolution='720p', language='Hindi', max_workers=5):
+    def download_stream(self, resolution=None, language=None, max_workers=5):
         """
         Download video stream with selected audio track
         
@@ -54,6 +67,16 @@ class M3U8DownloadManager:
         :param language: Desired audio language
         :param max_workers: Maximum concurrent downloads
         """
+        # If no resolution specified, use the first available
+        available_streams = self.get_available_streams()
+        if not resolution and available_streams:
+            resolution = available_streams[0]
+        
+        # If no language specified, use the first available audio track
+        available_audio_tracks = self.get_available_audio_tracks()
+        if not language and available_audio_tracks:
+            language = available_audio_tracks[0]
+        
         # Find matching stream playlist
         stream_playlist = next(
             (pl for pl in self.playlist.playlists 
@@ -111,7 +134,7 @@ class M3U8DownloadManager:
             output_file
         )
         
-        print(f"Download completed: {output_file}")
+        return output_file
     
     def _download_segments(self, playlist, segments_file, base_url, max_workers=5):
         """
@@ -189,19 +212,48 @@ class M3U8DownloadManager:
                 if os.path.exists(file):
                     os.remove(file)
 
-# Example usage
-def main():
-    playlist_url = "https://s10.nm-cdn2.top/files/0TI7NE8OHKMJJOUUSP339YB6SE.m3u8_in=unknown__pn"
-    
-    # Initialize download manager
-    download_manager = M3U8DownloadManager(playlist_url)
-    
-    # Show available streams and audio tracks
-    print("Available Streams:", download_manager.get_available_streams())
-    print("Available Audio Tracks:", download_manager.get_available_audio_tracks())
-    
-    # Download specific stream and audio track
-    download_manager.download_stream(resolution='720p', language='Hindi')
+# Flask Web Application
+app = Flask(__name__)
+app.config['DOWNLOAD_FOLDER'] = 'downloads'
+os.makedirs(app.config['DOWNLOAD_FOLDER'], exist_ok=True)
 
-if __name__ == "__main__":
-    main()
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    if request.method == 'POST':
+        # Get form data
+        playlist_url = request.form.get('playlist_url')
+        resolution = request.form.get('resolution')
+        language = request.form.get('language')
+        
+        try:
+            # Initialize download manager
+            download_manager = M3U8DownloadManager(playlist_url)
+            
+            # Get available streams and audio tracks
+            available_streams = download_manager.get_available_streams()
+            available_audio_tracks = download_manager.get_available_audio_tracks()
+            
+            # If no specific resolution or language provided, use first available
+            resolution = resolution or (available_streams[0] if available_streams else None)
+            language = language or (available_audio_tracks[0] if available_audio_tracks else None)
+            
+            # Download the stream
+            output_file = download_manager.download_stream(
+                resolution=resolution, 
+                language=language
+            )
+            
+            # Send the file for download
+            return send_file(
+                output_file, 
+                as_attachment=True, 
+                download_name=os.path.basename(output_file)
+            )
+        
+        except Exception as e:
+            return f"Error downloading stream: {str(e)}", 400
+    
+    return render_template('index.html')
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
