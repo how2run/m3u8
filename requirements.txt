@@ -1,4 +1,4 @@
+flask==2.3.2
 requests==2.31.0
 m3u8==3.1.0
 ffmpeg-python==0.2.0
-flask==2.3.2

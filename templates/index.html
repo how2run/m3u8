@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>M3U8 Video Downloader</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <style>
+        body { font-family: Arial; max-width: 600px; margin: 20px auto; padding: 20px; }
+        input, select { width: 100%; margin: 10px 0; padding: 10px; }
+        button { width: 100%; padding: 10px; background-color: #4CAF50; color: white; border: none; }
+        #streams, #languages { display: none; }
+    </style>
+</head>
+<body>
+    <h1>M3U8 Video Downloader</h1>
+    <form id="downloadForm">
+        <input type="url" id="playlist_url" name="playlist_url" placeholder="Enter M3U8 Playlist URL" required>
+        <button type="button" id="loadStreams">Load Streams</button>
+        
+        <div id="streams">
+            <select name="resolution" id="resolution">
+                <option value="">Select Resolution</option>
+            </select>
+        </div>
+        
+        <div id="languages">
+            <select name="language" id="language">
+                <option value="">Select Language</option>
+            </select>
+        </div>
+        
+        <button type="submit">Download Video</button>
+    </form>
+
+    <script>
+        $(document).ready(function() {
+            $('#loadStreams').click(function() {
+                var playlist_url = $('#playlist_url').val();
+                
+                $.ajax({
+                    url: '/get_streams',
+                    method: 'POST',
+                    data: { playlist_url: playlist_url },
+                    success: function(response) {
+                        $('#resolution').empty().append('<option value="">Select Resolution</option>');
+                        response.streams.forEach(function(stream) {
+                            $('#resolution').append(`<option value="${stream}">${stream}</option>`);
+                        });
+                        $('#streams').show();
+
+                        $('#language').empty().append('<option value="">Select Language</option>');
+                        response.audio_tracks.forEach(function(track) {
+                            $('#language').append(`<option value="${track}">${track}</option>`);
+                        });
+                        $('#languages').show();
+                    },
+                    error: function(xhr) {
+                        alert('Error loading streams: ' + xhr.responseText);
+                    }
+                });
+            });
+
+            $('#downloadForm').submit(function(e) {
+                e.preventDefault();
+                var form = $(this);
+                
+                $.ajax({
+                    url: '/',
+                    method: 'POST',
+                    data: form.serialize(),
+                    xhrFields: { responseType: 'blob' },
+                    success: function(data) {
+                        var a = document.createElement('a');
+                        var url = window.URL.createObjectURL(data);
+                        a.href = url;
+                        a.download = 'video.mp4';
+                        document.body.append(a);
+                        a.click();
+                        a.remove();
+                        window.URL.revokeObjectURL(url);
+                    },
+                    error: function(xhr) {
+                        alert('Download error: ' + xhr.responseText);
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
