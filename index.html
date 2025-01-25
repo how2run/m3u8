@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>M3U8 Video Downloader</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        input, select {
+            width: 100%;
+            margin: 10px 0;
+            padding: 10px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>M3U8 Video Downloader</h1>
+    <form method="POST">
+        <input type="url" name="playlist_url" placeholder="Enter M3U8 Playlist URL" required>
+        <input type="text" name="resolution" placeholder="Resolution (Optional)">
+        <input type="text" name="language" placeholder="Language (Optional)">
+        <button type="submit">Download Video</button>
+    </form>
+</body>
+</html>
