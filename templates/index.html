@@ -8,7 +8,19 @@
         body { font-family: Arial; max-width: 600px; margin: 20px auto; padding: 20px; }
         input, select { width: 100%; margin: 10px 0; padding: 10px; }
         button { width: 100%; padding: 10px; background-color: #4CAF50; color: white; border: none; }
-        #streams, #languages { display: none; }
+        .loading-spinner {
+            display: none;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 2s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -16,27 +28,24 @@
     <form id="downloadForm">
         <input type="url" id="playlist_url" name="playlist_url" placeholder="Enter M3U8 Playlist URL" required>
         <button type="button" id="loadStreams">Load Streams</button>
-        
-        <div id="streams">
+        <div id="streams" style="display: none;">
             <select name="resolution" id="resolution">
                 <option value="">Select Resolution</option>
             </select>
         </div>
-        
-        <div id="languages">
+        <div id="languages" style="display: none;">
             <select name="language" id="language">
                 <option value="">Select Language</option>
             </select>
         </div>
-        
         <button type="submit">Download Video</button>
     </form>
-
+    <div class="loading-spinner"></div>
     <script>
         $(document).ready(function() {
             $('#loadStreams').click(function() {
+                $('.loading-spinner').show();
                 var playlist_url = $('#playlist_url').val();
-                
                 $.ajax({
                     url: '/get_streams',
                     method: 'POST',
@@ -47,23 +56,23 @@
                             $('#resolution').append(`<option value="${stream}">${stream}</option>`);
                         });
                         $('#streams').show();
-
                         $('#language').empty().append('<option value="">Select Language</option>');
                         response.audio_tracks.forEach(function(track) {
                             $('#language').append(`<option value="${track}">${track}</option>`);
                         });
                         $('#languages').show();
+                        $('.loading-spinner').hide();
                     },
                     error: function(xhr) {
                         alert('Error loading streams: ' + xhr.responseText);
+                        $('.loading-spinner').hide();
                     }
                 });
             });
-
             $('#downloadForm').submit(function(e) {
                 e.preventDefault();
+                $('.loading-spinner').show();
                 var form = $(this);
-                
                 $.ajax({
                     url: '/',
                     method: 'POST',
@@ -78,9 +87,11 @@
                         a.click();
                         a.remove();
                         window.URL.revokeObjectURL(url);
+                        $('.loading-spinner').hide();
                     },
                     error: function(xhr) {
                         alert('Download error: ' + xhr.responseText);
+                        $('.loading-spinner').hide();
                     }
                 });
             });
