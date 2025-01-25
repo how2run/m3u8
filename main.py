@@ -15,19 +15,19 @@ class M3U8DownloadManager:
        self.playlist = self._parse_playlist()
 
    def _parse_playlist(self):
-       try:
-           response = requests.get(self.playlist_url, timeout=10)
-           response.raise_for_status()
-           return m3u8.loads(response.text)
-       except requests.exceptions.RequestException as e:
-           print(f"Playlist parsing error: {e}")
-           return None
-       except m3u8.M3U8Error as e:
-           print(f"M3U8 parsing error: {e}")
-           return None
-       except Exception as e:
-           print(f"Unexpected error: {e}")
-           return None
+    try:
+        response = requests.get(self.playlist_url, timeout=10)
+        response.raise_for_status()
+        return m3u8.loads(response.text)
+    except requests.exceptions.RequestException as e:
+        print(f"Playlist parsing error: {e}")
+        return None
+    except m3u8.M3U8Error as e:
+        print(f"M3U8 parsing error: {e}")
+        return None
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        return None
 
    def get_available_streams(self):
        if not self.playlist or not self.playlist.playlists:
